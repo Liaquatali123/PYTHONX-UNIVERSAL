@@ -5,6 +5,7 @@ import base64
 import zlib
 import zipfile
 import io
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -185,9 +186,62 @@ async def create_job(token: str, user_id: str, name: str, input_path: str, opera
     return r.json()[0]
 
 
+PLAN_LIMITS = {"free": 5, "pro": 50, "plus": 200, "max": 500}
+PLAN_LABELS = {"free": "Free", "pro": "Pro", "plus": "Plus", "max": "Max"}
+
+
+async def get_subscription(user_id: str, token: str):
+    query = f"/rest/v1/user_subscriptions?select=plan,status,expires_at&user_id=eq.{user_id}&limit=1"
+    response = await supabase_request("GET", query, token)
+    rows = response.json()
+    row = rows[0] if rows else {"plan": "free", "status": "active", "expires_at": None}
+    plan = row.get("plan", "free")
+    status = row.get("status", "active")
+    expires_at = row.get("expires_at")
+    if plan not in PLAN_LIMITS or status != "active":
+        return "free"
+    if expires_at:
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            if expiry <= datetime.now(timezone.utc):
+                return "free"
+        except (ValueError, TypeError):
+            return "free"
+    return plan
+
+
+async def get_daily_usage(user_id: str, token: str, limit: int):
+    now = datetime.now(timezone.utc)
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    query = f"/rest/v1/jobs?select=id&created_at=gte.{start}&limit={limit + 1}"
+    response = await supabase_request("GET", query, token)
+    return len(response.json())
+
+
+@app.get("/api/plan")
+async def my_plan(request: Request):
+    user, token = await current_user(request)
+    plan = await get_subscription(user["id"], token)
+    limit = PLAN_LIMITS[plan]
+    used = await get_daily_usage(user["id"], token, limit)
+    return {
+        "plan": plan,
+        "label": PLAN_LABELS[plan],
+        "daily_limit": limit,
+        "used_today": min(used, limit),
+        "remaining_today": max(0, limit - used),
+        "max_upload_mb": MAX_BYTES // (1024 * 1024),
+        "upgrade_mode": "manual"
+    }
+
+
 @app.post("/api/process")
 async def process_file(request: Request, file: UploadFile = File(...), operation: str = Form("scan"), password: Optional[str] = Form(None)):
     user, token = await current_user(request)
+    plan = await get_subscription(user["id"], token)
+    daily_limit = PLAN_LIMITS[plan]
+    if await get_daily_usage(user["id"], token, daily_limit) >= daily_limit:
+        raise HTTPException(429, f"Daily {PLAN_LABELS[plan]} plan limit reached ({daily_limit} jobs). Contact support to upgrade.")
     if operation not in {"scan", "encrypt", "decrypt"}:
         raise HTTPException(400, "Unsupported operation.")
     if operation in {"encrypt", "decrypt"} and (not password or len(password) < 8):
