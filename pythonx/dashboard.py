@@ -176,6 +176,7 @@ if(d.findings.length){$('rows').innerHTML=d.findings.slice().reverse().map(x=>'<
 if(d.report_json){$('outputs').innerHTML='JSON: <b>'+esc(d.report_json)+'</b><br>CSV: <b>'+esc(d.report_csv)+'</b>'}
 if(d.status==='error')$('hint').textContent=(d.findings.at(-1)||{}).error||'Scan error';else if(d.status==='completed')$('hint').textContent='Scan completed. Reports saved.';else if(d.status==='cancelled')$('hint').textContent='Scan cancelled. Partial reports saved.';lastStatus=d.status;
 }catch(e){}}setInterval(refresh,1000);refresh();
+fetch('/api/default').then(r=>r.json()).then(d=>{$('root').value=d.root}).catch(()=>{});
 </script></body></html>"""
 
 
@@ -195,6 +196,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, HTML.encode(), "text/html; charset=utf-8")
         elif route == "/api/status":
             self._send(200, JOB.snapshot())
+        elif route == "/api/default":
+            self._send(200, {"root": default_root()})
         else:
             self._send(404, {"error": "Not found"})
 
