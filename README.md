@@ -1,85 +1,60 @@
 # PYTHONX UNIVERSAL
 
-Terminal-only, cross-platform Python file inspection, password protection and best-effort recovery. Python 3.9+. One explicitly selected file at a time — no folder or whole-storage scanning.
+PYTHONX UNIVERSAL is a server-hosted file inspection and protection workspace. The website runs on Render; user accounts, job history and private uploaded files use Supabase. File operations run on the server, not on the visitor's device.
 
-## Android Termux — fresh install
+## Features
 
-Copy this complete block:
+- Supabase email/password sign-up and sign-in.
+- Private per-user file storage and processing history.
+- File signature inspection for PYTHONX, OpenSSL, PGP, PDF encryption markers, ZIP and 7z/RAR containers.
+- Protect files with PYTHONX AES-256-GCM encryption.
+- Decrypt only PYTHONX files when the correct original password is supplied.
+- Python syntax checks without executing uploaded code.
+- 50 MB upload limit; no password cracking, DRM bypass or execution of uploaded files.
 
-```bash
-pkg update -y && pkg install -y python git rust clang openssl libffi
-termux-setup-storage
-git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
-cd PYTHONX-UNIVERSAL
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -e ".[crypto,decompile]"
-python main.py
-```
+## Deployment
 
-## Android Termux — update existing install
+The repository includes `render.yaml`. In Render, create a Blueprint from this repository or create a Python web service with:
 
-```bash
-cd ~/PYTHONX-UNIVERSAL
-git pull
-python -m pip install -e ".[crypto,decompile]"
-python main.py
-```
+- Build: `pip install -r requirements.txt`
+- Start: `uvicorn app:app --host 0.0.0.0 --port $PORT`
+- Health check: `/health`
+- Region: Singapore
+- Plan: Free (subject to Render free-tier sleep and resource limits)
 
-## Windows PowerShell — fresh install
+Set these environment variables in Render:
 
-```powershell
-git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
-cd PYTHONX-UNIVERSAL
-py -m pip install --upgrade pip
-py -m pip install -e ".[crypto,decompile]"
-py main.py
-```
+- `SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co`
+- `SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY`
+- `COOKIE_SECURE=true`
 
-## Linux / macOS — fresh install
+Never put a Supabase secret/service-role key in the browser. This application uses the user's Supabase access token and database/storage RLS policies.
 
-```bash
-git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
-cd PYTHONX-UNIVERSAL
-python3 -m pip install --upgrade pip
-python3 -m pip install -e ".[crypto,decompile]"
-python3 main.py
-```
+## Supabase setup
 
-## Protect your own code or file
+The migration creates:
+- `public.jobs` with row-level security restricting records to their owner.
+- Private Storage bucket `pythonx-files` (50 MB limit).
+- Storage policies limiting access to the authenticated user's UUID folder.
 
-1. Start PYTHONX and enter the exact file path.
-2. Select **Protect this file**.
-3. Enter a password of at least 8 characters twice.
-4. PYTHONX creates a separate `.pyx` encrypted file. The original is not overwritten.
+Email confirmation behavior follows the Supabase Auth project settings. Users may need to confirm their email before signing in.
 
-## Decrypt your PYTHONX file
-
-1. Select the `.pyx` file.
-2. PYTHONX identifies its own encrypted format and displays the decrypt action.
-3. Enter the original password.
-4. The decrypted content is saved to a separate output file.
-
-Encryption uses **AES-256-GCM** authenticated encryption with a random salt and nonce, and a password-derived key using scrypt. A wrong password or modified file is rejected. Passwords are not stored. If you lose the password, PYTHONX cannot recover it.
-
-This protects files at rest; it does not make Python source impossible to copy after it has been decrypted or executed. It is not source-code obfuscation, licensing enforcement, or a compiled executable packer.
-
-## Detection and recovery
-
-- Detects the PYTHONX encrypted format and several common encryption/container signatures (OpenSSL, PGP, encrypted PDF marker, 7z/RAR container signatures).
-- Detects password-protected ZIP entries.
-- Only PYTHONX's own AES-GCM format is decrypted directly by PYTHONX. For other formats, use the original software and a legitimate password/key. Detection is indicative, not proof that a file is encrypted.
-- Python source syntax checks, bytecode metadata/disassembly, JSON reports, safe ZIP/PYZ extraction and Base64/zlib decoding.
-- Optional best-effort Python bytecode decompilation.
-
-## Tests
+## Local development
 
 ```bash
-python -m pip install -e ".[crypto,decompile]"
-python -m unittest discover -s tests -v
+python -m venv .venv
+# activate the environment, then:
+pip install -r requirements.txt
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY uvicorn app:app --reload
 ```
 
-## Safety and limitations
+## Security and limitations
 
-PYTHONX does not crack passwords or break AES, DRM, licensing, anti-tamper or access controls. It cannot guarantee recovery of damaged files. Python bytecode is version-specific; decompilation may fail. Never execute recovered code from an untrusted source. Marshal parsing is not a security boundary. Keep a backup before recovery operations.
+- Uploaded content is processed in server memory or temporary files and is never executed.
+- Files are stored in a private bucket under `<user_id>/<job_id>/`.
+- The app only decrypts its own authenticated PYTHONX AES-256-GCM format. It cannot recover unknown passwords or decrypt third-party formats without their legitimate key/software.
+- Detection is signature-based and indicative, not proof.
+- Render's free service may sleep when idle and has limited memory/CPU. Large or concurrent recovery jobs may require a paid worker/server.
+- Configure retention and deletion policies before using this for sensitive production workloads.
 
-MIT License; see LICENSE.
+MIT License; see [LICENSE](LICENSE).
