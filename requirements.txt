@@ -1,1 +1,6 @@
-# No mandatory third-party runtime dependencies.
+fastapi==0.121.3
+uvicorn[standard]==0.38.0
+httpx==0.28.1
+python-multipart==0.0.20
+jinja2==3.1.6
+cryptography==46.0.3
