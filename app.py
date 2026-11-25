@@ -10,7 +10,7 @@ from typing import Optional
 
 import httpx
 from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from pythonx.encryption import MAGIC, detect_protection, encrypt_file, decrypt_file
@@ -71,9 +71,9 @@ def set_session_cookies(response, data):
         response.set_cookie("px_refresh", data["refresh_token"], max_age=60 * 60 * 24 * 30, **opts)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    return {"service": "PYTHONX UNIVERSAL API", "docs": "/docs", "health": "/health"}
+@app.api_route("/", methods=["GET", "HEAD"])
+async def home():
+    return JSONResponse({"service": "PYTHONX UNIVERSAL API", "docs": "/docs", "health": "/health"})
 
 
 @app.get("/health")
