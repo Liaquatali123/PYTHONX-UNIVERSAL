@@ -12,7 +12,6 @@ import httpx
 from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from pythonx.encryption import MAGIC, detect_protection, encrypt_file, decrypt_file
 
@@ -23,7 +22,6 @@ MAX_BYTES = 50 * 1024 * 1024
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 
 app = FastAPI(title="PYTHONX UNIVERSAL", version="1.0.0")
-templates = Jinja2Templates(directory="templates")
 
 
 def configured():
@@ -75,7 +73,7 @@ def set_session_cookies(response, data):
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return {"service": "PYTHONX UNIVERSAL API", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/health")
