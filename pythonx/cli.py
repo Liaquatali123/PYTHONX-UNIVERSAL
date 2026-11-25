@@ -11,10 +11,10 @@ from .encryption import encrypt_file, decrypt_file, is_pyx_encrypted
 
 BANNER = r"""
  ____  __   __ ____  _   _  ___  __  __
-|  _ \\ \\ \\ / /|  _ \\| | | |/ _ \\|  \\/  |
-| |_) | \\ V / | |_) | |_| | | | | |\\/| |
+|  _ \ \ \ / /|  _ \| | | |/ _ \|  \/  |
+| |_) | \ V / | |_) | |_| | | | | |\/| |
 |  __/   | |  |  __/|  _  | |_| | |  | |
-|_|      |_|  |_|   |_| |_|\\___/|_|  |_|
+|_|      |_|  |_|   |_| |_|\___/|_|  |_|
              UNIVERSAL FILE TOOL
 """
 
@@ -26,7 +26,7 @@ def ask_output(prompt, default):
     return Path(clean_path(value)) if value else Path(default)
 
 def show_inspection(data):
-    print("\\n[ FILE OVERVIEW ]")
+    print("\n[ FILE OVERVIEW ]")
     for key in ("name", "type", "size", "sha256"):
         if key in data:
             value = data[key]
@@ -59,7 +59,7 @@ def interactive():
     print("  One file at a time | No folder scan | No automatic storage scan")
     print("  Paste or drag one file path into this terminal.")
     while True:
-        raw = input("\\n[ PYTHONX ] File path (or q to quit): ")
+        raw = input("\n[ PYTHONX ] File path (or q to quit): ")
         if raw.strip().lower() in {"q", "quit", "exit"}:
             return 0
         path = Path(clean_path(raw)).expanduser()
@@ -81,7 +81,7 @@ def interactive():
     is_bytecode = suffix in {".pyc", ".pyo"}
     encrypted = is_pyx_encrypted(path)
     while True:
-        print("\\n[ SELECT ACTION ]")
+        print("\n[ SELECT ACTION ]")
         print("  1) Save full file report (JSON)")
         if is_zip:
             print("  2) Safely extract this archive")
@@ -93,7 +93,7 @@ def interactive():
             print("  6) Decrypt this PYTHONX protected file")
         print("  7) Show file details again")
         print("  0) Exit")
-        choice = input("\\n  Choose an option: ").strip()
+        choice = input("\n  Choose an option: ").strip()
         try:
             if choice == "0":
                 return 0
