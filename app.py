@@ -187,9 +187,9 @@ async def storage_upload(token: str, path: str, data: bytes, content_type: str):
         content=data, headers={"Content-Type": content_type, "x-upsert": "false"})
 
 
-async def create_job(token: str, user_id: str, name: str, input_path: str, operation: str, report: dict):
+async def create_job(token: str, user_id: str, name: str, input_path: str, operation: str, report: dict, output_path: Optional[str] = None):
     payload = {"user_id": user_id, "original_name": name[:255], "input_path": input_path,
-               "operation": operation, "status": "completed", "report": report}
+               "output_path": output_path, "operation": operation, "status": "completed", "report": report}
     r = await supabase_request("POST", "/rest/v1/jobs", token, json=payload,
         headers={"Content-Type": "application/json", "Prefer": "return=representation"})
     return r.json()[0]
@@ -365,7 +365,7 @@ async def process_file(request: Request, file: UploadFile = File(...), operation
     daily_limit = PLAN_LIMITS[plan]
     if await get_daily_usage(user["id"], token, daily_limit) >= daily_limit:
         raise HTTPException(429, f"Daily {PLAN_LABELS[plan]} plan limit reached ({daily_limit} jobs). Contact support to upgrade.")
-    if operation not in {"scan", "encrypt", "decrypt"}:
+    if operation not in {"scan", "encrypt", "decrypt", "obfuscate"}:
         raise HTTPException(400, "Unsupported operation.")
     if operation in {"encrypt", "decrypt"} and (not password or len(password) < 8):
         raise HTTPException(400, "Enter a password with at least 8 characters.")
@@ -375,6 +375,8 @@ async def process_file(request: Request, file: UploadFile = File(...), operation
         raise HTTPException(400, "The selected file is empty.")
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Maximum upload size is 50 MB.")
+    if operation == "obfuscate" and Path(original_name).suffix.lower() != ".py":
+        raise HTTPException(400, "Obfuscation accepts Python .py source files only.")
     if operation == "decrypt" and not data.startswith(MAGIC):
         raise HTTPException(400, "Only PYTHONX AES-256-GCM files can be decrypted here. Other formats need their original software and key.")
     job_id = str(uuid.uuid4())
@@ -385,6 +387,31 @@ async def process_file(request: Request, file: UploadFile = File(...), operation
     report = inspect_bytes(data, original_name)
     output_path = None
     output_name = None
+    if operation == "obfuscate":
+        try:
+            source = data.decode("utf-8-sig")
+            compile(source, original_name, "exec")  # syntax validation only; never execute uploaded code
+        except UnicodeDecodeError:
+            raise HTTPException(400, "Python source must be UTF-8 encoded.")
+        except SyntaxError as exc:
+            raise HTTPException(400, f"Python syntax error at line {exc.lineno}: {exc.msg}")
+        try:
+            import python_minifier
+            protected_source = python_minifier.minify(source, rename_locals=True, rename_globals=False,
+                remove_literal_statements=False, remove_asserts=False, remove_debug=False)
+            protected_bytes = protected_source.encode("utf-8")
+            compile(protected_source, "protected.py", "exec")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(422, f"Python obfuscation failed safely: {str(exc)[:220]}")
+        output_name = "protected.py"
+        output_path = f"{prefix}/{output_name}"
+        await storage_upload(token, output_path, protected_bytes, "text/x-python")
+        report.update({"encrypted": False, "obfuscated": True, "format": "PYTHONX Python source obfuscation",
+            "decryptable_by_pythonx": False, "checks": report.get("checks", []) + ["Python syntax validated; local variable names obfuscated; output syntax validated; uploaded code was not executed."],
+            "warnings": report.get("warnings", []) + ["Obfuscation is not encryption. Python code can still be reverse engineered; do not embed secrets in source."],
+            "result": {"filename": output_name, "size_bytes": len(protected_bytes)}})
     if operation in {"encrypt", "decrypt"}:
         import tempfile
         with tempfile.TemporaryDirectory(prefix="pythonx-") as temp:
@@ -403,7 +430,7 @@ async def process_file(request: Request, file: UploadFile = File(...), operation
             output_path = f"{prefix}/{output_name}"
             await storage_upload(token, output_path, output, "application/octet-stream")
             report["result"] = {"filename": output_name, "size_bytes": len(output)}
-    job = await create_job(token, user["id"], original_name, input_path, operation, report)
+    job = await create_job(token, user["id"], original_name, input_path, operation, report, output_path)
     return {"job_id": job_id, "record_id": job["id"], "report": report, "output_available": bool(output_path),
             "output_name": output_name, "output_path": output_path}
 
