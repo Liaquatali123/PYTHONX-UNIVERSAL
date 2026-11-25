@@ -60,7 +60,7 @@ def recover_path(source, output):
         target = out / src.name
         shutil.copy2(src, target)
         return [str(target)]
-    raise ValueError("Supported inputs: directory, ZIP/PYZ, .py, .pyc and .pyo")
+    raise ValueError("Supported files: ZIP/PYZ archives and .py, .pyc or .pyo files")
 
 def decode_payload(source, output):
     raw = Path(source).read_bytes()
