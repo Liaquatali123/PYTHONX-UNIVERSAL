@@ -18,6 +18,8 @@ from pythonx.encryption import MAGIC, detect_protection, encrypt_file, decrypt_f
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+ADMIN_EMAILS = {x.strip().lower() for x in os.getenv("ADMIN_EMAILS", "").split(",") if x.strip()}
 BUCKET = "pythonx-files"
 MAX_BYTES = 50 * 1024 * 1024
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
@@ -213,9 +215,123 @@ async def get_subscription(user_id: str, token: str):
 async def get_daily_usage(user_id: str, token: str, limit: int):
     now = datetime.now(timezone.utc)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
-    query = f"/rest/v1/jobs?select=id&created_at=gte.{start}&limit={limit + 1}"
+    query = f"/rest/v1/jobs?select=id&user_id=eq.{user_id}&created_at=gte.{start}&limit={limit + 1}"
     response = await supabase_request("GET", query, token)
     return len(response.json())
+
+
+
+
+def require_service_key():
+    if not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(503, "Admin management is not configured yet. Add SUPABASE_SERVICE_ROLE_KEY to the Render backend environment.")
+    
+
+async def admin_request(method: str, path: str, **kwargs):
+    require_service_key()
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        **kwargs.pop("headers", {}),
+    }
+    async with httpx.AsyncClient(timeout=45) as client:
+        response = await client.request(method, f"{SUPABASE_URL}{path}", headers=headers, **kwargs)
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("msg") or response.json().get("message") or response.text
+        except Exception:
+            detail = response.text
+        raise HTTPException(response.status_code, str(detail)[:400])
+    return response
+
+
+async def require_admin(request: Request):
+    user, token = await current_user(request)
+    email = (user.get("email") or "").strip().lower()
+    if not email or email not in ADMIN_EMAILS:
+        raise HTTPException(403, "Admin access denied.")
+    require_service_key()
+    return user, token
+
+
+@app.get("/api/role")
+async def role(request: Request):
+    user, _ = await current_user(request)
+    email = (user.get("email") or "").strip().lower()
+    return {"role": "admin" if email and email in ADMIN_EMAILS else "user", "email": email}
+
+
+@app.get("/api/admin/me")
+async def admin_me(request: Request):
+    user, _ = await require_admin(request)
+    return {"role": "admin", "email": user.get("email"), "permissions": ["users:read", "subscriptions:write", "usage:read"]}
+
+
+@app.get("/api/admin/users")
+async def admin_users(request: Request, search: str = ""):
+    await require_admin(request)
+    needle = search.strip().lower()
+    users = []
+    for page in range(1, 11):
+        response = await admin_request("GET", f"/auth/v1/admin/users?page={page}&per_page=100")
+        batch = response.json().get("users", [])
+        if not batch:
+            break
+        for item in batch:
+            email = (item.get("email") or "").lower()
+            if not needle or needle in email:
+                users.append({"id": item["id"], "email": email, "created_at": item.get("created_at"), "last_sign_in_at": item.get("last_sign_in_at"), "email_confirmed": bool(item.get("email_confirmed_at"))})
+        if needle and any(x["email"] == needle for x in users):
+            break
+        if len(batch) < 100:
+            break
+    if not users:
+        return {"users": []}
+    ids = [u["id"] for u in users]
+    in_filter = ",".join(ids)
+    subs = (await admin_request("GET", f"/rest/v1/user_subscriptions?select=user_id,plan,status,expires_at,updated_at&user_id=in.({in_filter})")).json()
+    sub_by_user = {x["user_id"]: x for x in subs}
+    for item in users:
+        item["subscription"] = sub_by_user.get(item["id"], {"plan": "free", "status": "active", "expires_at": None})
+    return {"users": users[:50]}
+
+
+@app.post("/api/admin/subscriptions")
+async def admin_update_subscription(request: Request, payload: dict):
+    admin, _ = await require_admin(request)
+    user_id = str(payload.get("user_id", "")).strip()
+    plan = str(payload.get("plan", "")).lower().strip()
+    status = str(payload.get("status", "active")).lower().strip()
+    expires_at = payload.get("expires_at")
+    if plan not in PLAN_LIMITS:
+        raise HTTPException(400, "Invalid plan.")
+    if status not in {"active", "suspended", "expired"}:
+        raise HTTPException(400, "Invalid subscription status.")
+    try:
+        uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid user ID.")
+    if expires_at:
+        try:
+            datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(400, "Invalid expiry date.")
+    # Confirm the target account exists before changing its plan.
+    target = await admin_request("GET", f"/auth/v1/admin/users/{user_id}")
+    target_user = target.json().get("user", target.json())
+    row = {"user_id": user_id, "plan": plan, "status": status, "expires_at": expires_at, "updated_at": datetime.now(timezone.utc).isoformat()}
+    await admin_request("POST", "/rest/v1/user_subscriptions?on_conflict=user_id", json=row,
+        headers={"Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=representation"})
+    try:
+        await admin_request("POST", "/rest/v1/subscription_audit_logs", json={
+            "actor_user_id": admin["id"], "actor_email": (admin.get("email") or "").lower(),
+            "target_user_id": user_id, "target_email": (target_user.get("email") or "").lower(),
+            "action": "subscription_updated", "details": {"plan": plan, "status": status, "expires_at": expires_at}
+        }, headers={"Content-Type": "application/json", "Prefer": "return=minimal"})
+    except HTTPException:
+        # The plan change is authoritative; audit table may not have been migrated yet.
+        pass
+    return {"ok": True, "user_id": user_id, "plan": plan, "status": status, "expires_at": expires_at}
 
 
 @app.get("/api/plan")
