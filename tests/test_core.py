@@ -16,9 +16,14 @@ class CoreTests(unittest.TestCase):
         p = self.root / "a.py"
         p.write_text("print('ok')\n")
         self.assertTrue(inspect_file(p)["syntax_valid"])
-    def test_directory_scan(self):
-        (self.root / "a.py").write_text("x=1")
-        self.assertEqual(len(scan_path(self.root)), 1)
+    def test_single_file_only(self):
+        p = self.root / "a.py"
+        p.write_text("x=1")
+        self.assertEqual(len(scan_path(p)), 1)
+        with self.assertRaises(ValueError):
+            scan_path(self.root)
+        with self.assertRaises(ValueError):
+            recover_path(self.root, self.root / "out")
     def test_zip_extract(self):
         z = self.root / "a.zip"
         with zipfile.ZipFile(z, "w") as f:
