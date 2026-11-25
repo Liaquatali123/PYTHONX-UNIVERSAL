@@ -8,6 +8,7 @@ import struct
 import types
 import zipfile
 from pathlib import Path
+from .encryption import detect_protection
 
 MAX_FILE_SIZE = 128 * 1024 * 1024
 MARKERS = (b"pyinstaller", b"pyi_archive", b"PYZ-00", b"Nuitka", b"PyArmor")
@@ -22,6 +23,7 @@ def inspect_file(path):
     data = p.read_bytes()
     result = {"path": str(p.resolve()), "name": p.name, "size": size,
               "sha256": hashlib.sha256(data).hexdigest(), "type": "unknown"}
+    result["protection"] = detect_protection(p)
     suffix = p.suffix.lower()
     if suffix == ".py":
         result["type"] = "python-source"
@@ -38,16 +40,23 @@ def inspect_file(path):
         result["type"] = "python-zipapp" if suffix == ".pyz" else "zip-archive"
         with zipfile.ZipFile(p) as zf:
             infos = zf.infolist()
+            encrypted_entries = [i.filename for i in infos if i.flag_bits & 0x1]
             result["archive"] = {"entry_count": len(infos),
+                "encrypted_entries": encrypted_entries[:100],
+                "has_encrypted_entries": bool(encrypted_entries),
                 "entries": [{"name": i.filename, "size": i.file_size,
                              "compressed_size": i.compress_size} for i in infos[:10000]],
                 "truncated": len(infos) > 10000}
+            if encrypted_entries:
+                result["protection"] = {"encrypted": True, "format": "ZIP password encryption",
+                    "decryptable_by_pythonx": False,
+                    "note": "Use the archive's legitimate password; this tool does not crack ZIP passwords."}
     head = data[:2 * 1024 * 1024].lower()
     found = [m.decode("ascii") for m in MARKERS if m.lower() in head]
     if found:
         result["frozen_markers"] = found
         result.setdefault("warnings", []).append("Marker detection only; no protection bypass is performed.")
-    if data.startswith(b"\x7fELF") or data.startswith(b"MZ"):
+    if data.startswith(b"\\x7fELF") or data.startswith(b"MZ"):
         result["type"] = "native-executable"
     return result
 
