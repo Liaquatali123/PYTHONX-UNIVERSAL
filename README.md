@@ -101,3 +101,19 @@ Users can read only their own subscription. Authenticated users cannot edit thei
 - Plan and daily quota checks happen in the Python API, not in frontend JavaScript.
 - Job history and private file storage remain protected by Supabase RLS and user-folder policies.
 - API URLs and requests cannot be made impossible to inspect. The protection is server-side authorization, quotas, validation, and keeping privileged secrets off the client—not hiding endpoint URLs.
+
+
+## Admin roles and subscription management
+
+The API enforces roles server-side. Only these exact email addresses are allowed to use the admin API:
+
+- `rdxkinglucky@gmail.com`
+- `liaquatalisoomroali@gmail.com`
+
+Set `ADMIN_EMAILS` on the Render API service to the comma-separated allowlist. This is already configured for the production service. All other signed-in accounts receive the `user` role and are denied admin endpoints.
+
+For plan management, set `SUPABASE_SERVICE_ROLE_KEY` on the Render API service to the Supabase project **secret key** (preferred, starts with `sb_secret_`) or legacy service-role key. Never add this key to Vercel, frontend code, GitHub, or a chat message. The backend first validates the caller's Supabase Auth session and checks the email allowlist; only then does it use the server-side key for Auth user lookup and subscription writes.
+
+The website's Admin Control Center is visible only to the two allowlisted admins. It supports account lookup and plan/status changes. Subscription changes are recorded in `public.subscription_audit_logs`; the table denies all client-role access. Normal users can only read their own subscription, and cannot create or change plan records.
+
+Apply the migrations in `supabase/migrations` to the linked Supabase project. Admin plan management remains unavailable until `SUPABASE_SERVICE_ROLE_KEY` is configured in Render.
