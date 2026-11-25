@@ -1,60 +1,63 @@
 # PYTHONX UNIVERSAL
 
-PYTHONX UNIVERSAL is a server-hosted file inspection and protection workspace. The website runs on Render; user accounts, job history and private uploaded files use Supabase. File operations run on the server, not on the visitor's device.
+PYTHONX UNIVERSAL is split into two deployments:
 
-## Features
+- **Frontend (Vercel):** static website and dashboard in `frontend/`.
+- **Python API (Render):** FastAPI backend at `https://pythonx-universal.onrender.com`.
+- **Supabase:** Auth, Postgres job history, and private file storage.
+- **GitHub:** source repository and automatic deployment trigger.
 
-- Supabase email/password sign-up and sign-in.
-- Private per-user file storage and processing history.
-- File signature inspection for PYTHONX, OpenSSL, PGP, PDF encryption markers, ZIP and 7z/RAR containers.
-- Protect files with PYTHONX AES-256-GCM encryption.
-- Decrypt only PYTHONX files when the correct original password is supplied.
-- Python syntax checks without executing uploaded code.
-- 50 MB upload limit; no password cracking, DRM bypass or execution of uploaded files.
+The Vercel frontend uses rewrites in `frontend/vercel.json` to proxy `/auth/*`, `/api/*`, and `/health` to the Render API. This keeps browser requests same-origin, so the HttpOnly session cookies work without exposing tokens to JavaScript.
 
-## Deployment
+## Deployments
 
-The repository includes `render.yaml`. In Render, create a Blueprint from this repository or create a Python web service with:
+### Vercel frontend
+- Repository: `Liaquatali123/PYTHONX-UNIVERSAL`
+- Root directory: `frontend`
+- Production domain: `https://pythonx-universal-web.vercel.app`
+- Static site; no frontend build command required.
 
+### Render Python API
+- Repository: `Liaquatali123/PYTHONX-UNIVERSAL`
+- Root directory: repository root
 - Build: `pip install -r requirements.txt`
 - Start: `uvicorn app:app --host 0.0.0.0 --port $PORT`
 - Health check: `/health`
-- Region: Singapore
-- Plan: Free (subject to Render free-tier sleep and resource limits)
+- Region: Singapore; free plan may sleep while idle.
 
-Set these environment variables in Render:
-
-- `SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co`
-- `SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY`
+Set these Render environment variables:
+- `SUPABASE_URL=https://boaugmzcyyvewvrrxzgr.supabase.co`
+- `SUPABASE_ANON_KEY=<Supabase publishable key>`
 - `COOKIE_SECURE=true`
 
-Never put a Supabase secret/service-role key in the browser. This application uses the user's Supabase access token and database/storage RLS policies.
+Do not place a Supabase secret/service-role key in frontend code. The backend uses the user's Supabase access token and database/storage RLS policies.
 
 ## Supabase setup
 
-The migration creates:
-- `public.jobs` with row-level security restricting records to their owner.
-- Private Storage bucket `pythonx-files` (50 MB limit).
-- Storage policies limiting access to the authenticated user's UUID folder.
+- `public.jobs` has row-level security restricting each record to its owner.
+- Private Storage bucket: `pythonx-files`, 50 MB object limit.
+- Storage policies restrict access to the authenticated user's UUID folder.
+- Email confirmation behavior follows the Supabase Auth project settings.
 
-Email confirmation behavior follows the Supabase Auth project settings. Users may need to confirm their email before signing in.
+## Features and limits
 
-## Local development
+- Email/password sign-up and sign-in.
+- Private file inspection and job history.
+- Signature inspection for PYTHONX, OpenSSL, PGP, PDF encryption markers, ZIP, 7z/RAR containers.
+- Protect files with PYTHONX AES-256-GCM.
+- Decrypt PYTHONX files only with the correct password.
+- Python syntax checks without executing uploaded code.
+- 50 MB upload limit.
+- No password cracking, AES breaking, DRM bypass, or execution of uploaded files.
+- Detection is indicative, not proof; other formats require their original password/key and compatible software.
+- Render's free service may sleep and has limited CPU/memory. Heavy concurrent processing may require a paid plan.
+
+## Local API development
 
 ```bash
 python -m venv .venv
-# activate the environment, then:
 pip install -r requirements.txt
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY uvicorn app:app --reload
 ```
-
-## Security and limitations
-
-- Uploaded content is processed in server memory or temporary files and is never executed.
-- Files are stored in a private bucket under `<user_id>/<job_id>/`.
-- The app only decrypts its own authenticated PYTHONX AES-256-GCM format. It cannot recover unknown passwords or decrypt third-party formats without their legitimate key/software.
-- Detection is signature-based and indicative, not proof.
-- Render's free service may sleep when idle and has limited memory/CPU. Large or concurrent recovery jobs may require a paid worker/server.
-- Configure retention and deletion policies before using this for sensitive production workloads.
 
 MIT License; see [LICENSE](LICENSE).
