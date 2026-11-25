@@ -1,14 +1,24 @@
 # PYTHONX UNIVERSAL
 
-Terminal-only, cross-platform Python artifact inspection and best-effort recovery. Python 3.9+; no mandatory runtime dependencies. No web GUI and no automatic whole-storage scan.
+Terminal-only Python file inspection and best-effort recovery. Python 3.9+; no mandatory runtime dependencies.
 
-## Features
-- Inspect a user-supplied .py, .pyc/.pyo, ZIP or PYZ file path.
-- Scan only the exact file or folder path supplied by the user.
-- Safely extract ZIP/PYZ archives with traversal, symlink, entry-count and size checks.
-- Export JSON reports.
-- Explicitly decode recognizable Base64 or zlib payloads.
-- Optional decompyle3 command integration.
+**One file at a time.** PYTHONX never scans folders, the whole phone, or computer storage. You choose one exact file path; it works only on that file.
+
+## Start with one command
+
+After installation, run:
+
+    python main.py
+
+Or, when installed:
+
+    python -m pythonx.cli
+
+The interactive tool asks for one file path, identifies its type, displays a summary, and shows relevant actions. Paste a path or drag a file into the terminal. Select an action from the menu; no need to remember separate commands.
+
+Direct one-file inspection is also supported:
+
+    python main.py "/sdcard/Download/sample.pyc"
 
 ## Install
 
@@ -32,37 +42,23 @@ Android Termux:
     cd PYTHONX-UNIVERSAL
     python -m pip install -e .
     termux-setup-storage
+    python main.py
 
-## Terminal usage
+## Actions
 
-Inspect one exact file:
-    python main.py inspect /path/to/file.pyc
+- Identify and inspect one selected .py, .pyc/.pyo, ZIP/PYZ, or other file.
+- Check Python source syntax and compatible bytecode metadata.
+- Safely extract a selected ZIP/PYZ archive with path traversal, symlink, entry-count and size safeguards.
+- Save a JSON report.
+- Explicitly attempt Base64 or zlib payload decoding.
+- Optionally decompile bytecode when decompyle3 supports its Python version.
 
-Scan one exact file:
-    python main.py scan /path/to/file.py --json report.json
+## Safety and limitations
 
-Scan a folder only when you explicitly provide that folder:
-    python main.py scan /path/to/my-project --json report.json
-
-Extract a ZIP/PYZ archive:
-    python main.py recover /path/to/archive.pyz --output ./recovered
-
-Decode a payload:
-    python main.py decode /path/to/payload.txt --output ./decoded.bin
-
-Decompile compatible bytecode (optional dependency):
-    python -m pip install decompyle3
-    python main.py decompile /path/to/file.pyc --output ./recovered
-
-Run:
-    python main.py --help
-
-**No default storage path is scanned.** The tool works only on paths the user explicitly supplies. Supplying a folder to `scan` intentionally scans that folder recursively; supplying a single file inspects only that file.
-
-## Limitations and safety
-This is not a universal decryptor or protection remover. It cannot break encryption, DRM, licensing, anti-tamper or access controls. Bytecode is Python-version-specific; decompilation is best-effort and depends on third-party support. PyInstaller, Nuitka, Cython, PyArmor and native binaries may require matching vendor tools, runtime, or original source. Detection does not imply extraction. Never execute recovered code from untrusted sources. Marshal parsing is not a security boundary; use isolation for unknown files.
+This is not a universal decryptor or protection remover. It cannot break encryption, DRM, licensing, anti-tamper or access controls. Bytecode is Python-version-specific; decompilation is best-effort. PyInstaller, Nuitka, Cython, PyArmor and native binaries may require matching vendor tools, runtime, or original source. Detection does not imply extraction. Never execute recovered code from untrusted sources. Marshal parsing is not a security boundary.
 
 ## Tests
+
     python -m unittest discover -s tests -v
 
 MIT License; see LICENSE.
