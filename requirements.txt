@@ -3,4 +3,4 @@ uvicorn[standard]==0.38.0
 httpx==0.28.1
 python-multipart==0.0.20
 cryptography==46.0.3
-python-minifier>=2.11,<3
+python-minifier>=3.4,<4
