@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/auth/:path*",
+      "destination": "https://pythonx-universal.onrender.com/auth/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://pythonx-universal.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://pythonx-universal.onrender.com/health"
+    }
+  ]
+}
