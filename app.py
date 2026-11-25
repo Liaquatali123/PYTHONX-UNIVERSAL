@@ -212,7 +212,7 @@ async def get_subscription(user_id: str, token: str):
 
 async def get_daily_usage(user_id: str, token: str, limit: int):
     now = datetime.now(timezone.utc)
-    start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = f"/rest/v1/jobs?select=id&created_at=gte.{start}&limit={limit + 1}"
     response = await supabase_request("GET", query, token)
     return len(response.json())
