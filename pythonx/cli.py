@@ -3,16 +3,18 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
+from getpass import getpass
 from pathlib import Path
 from .scanner import inspect_file, write_json
 from .recovery import recover_path, decode_payload
+from .encryption import encrypt_file, decrypt_file, is_pyx_encrypted
 
 BANNER = r"""
  ____  __   __ ____  _   _  ___  __  __
-|  _ \ \ \ / /|  _ \| | | |/ _ \|  \/  |
-| |_) | \ V / | |_) | |_| | | | | |\/| |
+|  _ \\ \\ \\ / /|  _ \\| | | |/ _ \\|  \\/  |
+| |_) | \\ V / | |_) | |_| | | | | |\\/| |
 |  __/   | |  |  __/|  _  | |_| | |  | |
-|_|      |_|  |_|   |_| |_|\___/|_|  |_|
+|_|      |_|  |_|   |_| |_|\\___/|_|  |_|
              UNIVERSAL FILE TOOL
 """
 
@@ -24,19 +26,26 @@ def ask_output(prompt, default):
     return Path(clean_path(value)) if value else Path(default)
 
 def show_inspection(data):
-    print("\n[ FILE OVERVIEW ]")
+    print("\\n[ FILE OVERVIEW ]")
     for key in ("name", "type", "size", "sha256"):
         if key in data:
             value = data[key]
             if key == "size":
                 value = f"{value:,} bytes"
             print(f"  {key.replace('_', ' ').title():<12}: {value}")
+    protection = data.get("protection", {})
+    print("  Protection   :", protection.get("format", "Unknown / not identified"))
+    print("  Encrypted    :", "YES" if protection.get("encrypted") else "Not detected")
+    if protection.get("note"):
+        print("  Note         :", protection["note"])
     if data.get("syntax_valid") is not None:
         print("  Python syntax :", "VALID" if data["syntax_valid"] else "INVALID")
         if data.get("syntax_error"):
             print("  Syntax error  :", data["syntax_error"])
     if data.get("archive"):
         print("  Archive items :", data["archive"]["entry_count"])
+        if data["archive"].get("has_encrypted_entries"):
+            print("  Password ZIP  : detected")
     if data.get("frozen_markers"):
         print("  Markers       :", ", ".join(data["frozen_markers"]))
     bytecode = data.get("bytecode", {})
@@ -50,7 +59,7 @@ def interactive():
     print("  One file at a time | No folder scan | No automatic storage scan")
     print("  Paste or drag one file path into this terminal.")
     while True:
-        raw = input("\n[ PYTHONX ] File path (or q to quit): ")
+        raw = input("\\n[ PYTHONX ] File path (or q to quit): ")
         if raw.strip().lower() in {"q", "quit", "exit"}:
             return 0
         path = Path(clean_path(raw)).expanduser()
@@ -70,17 +79,21 @@ def interactive():
     suffix = path.suffix.lower()
     is_zip = bool(info.get("archive"))
     is_bytecode = suffix in {".pyc", ".pyo"}
+    encrypted = is_pyx_encrypted(path)
     while True:
-        print("\n[ SELECT ACTION ]")
+        print("\\n[ SELECT ACTION ]")
         print("  1) Save full file report (JSON)")
         if is_zip:
             print("  2) Safely extract this archive")
         if is_bytecode:
             print("  3) Decompile bytecode (optional support)")
         print("  4) Try Base64 / zlib payload decoding")
-        print("  5) Show file details again")
+        print("  5) Protect this file with AES-256-GCM password encryption")
+        if encrypted:
+            print("  6) Decrypt this PYTHONX protected file")
+        print("  7) Show file details again")
         print("  0) Exit")
-        choice = input("\n  Choose an option: ").strip()
+        choice = input("\\n  Choose an option: ").strip()
         try:
             if choice == "0":
                 return 0
@@ -95,7 +108,7 @@ def interactive():
             elif choice == "3" and is_bytecode:
                 exe = shutil.which("decompyle3")
                 if not exe:
-                    print("  [!] Optional dependency: python -m pip install decompyle3")
+                    print("  [!] Install optional support: python -m pip install 'pythonx-universal[decompile]'")
                     continue
                 output = ask_output("Output folder", str(path.with_name(path.stem + "_source")))
                 result = subprocess.run([exe, "-o", str(output), str(path)], check=False)
@@ -108,6 +121,21 @@ def interactive():
                 method = decode_payload(path, output)
                 print(f"  [+] Decoded using {method}: {output.resolve()}")
             elif choice == "5":
+                output = ask_output("Encrypted output file", str(path.with_name(path.name + ".pyx")))
+                password = getpass("  New password (minimum 8 characters): ")
+                confirm = getpass("  Confirm password: ")
+                if password != confirm:
+                    print("  [!] Passwords do not match.")
+                    continue
+                encrypt_file(path, output, password)
+                print("  [+] Protected file saved:", output.resolve())
+                print("  [!] Keep the password safe. It cannot be recovered if lost.")
+            elif choice == "6" and encrypted:
+                output = ask_output("Decrypted output file", str(path.with_suffix(".recovered")))
+                password = getpass("  Password: ")
+                decrypt_file(path, output, password)
+                print("  [+] Decrypted file saved:", output.resolve())
+            elif choice == "7":
                 show_inspection(inspect_file(path))
             else:
                 print("  [!] Choose an option shown in the menu.")
