@@ -61,3 +61,43 @@ SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co SUPABASE_ANON_KEY=YOUR_PUBLISH
 ```
 
 MIT License; see [LICENSE](LICENSE).
+
+
+## Subscription plans and manual upgrades
+
+The dashboard shows these server-enforced daily processing quotas:
+
+| Plan | Jobs per UTC day | Max upload |
+|---|---:|---:|
+| Free | 5 | 50 MB |
+| Pro | 50 | 50 MB |
+| Plus | 200 | 50 MB |
+| Max | 500 | 50 MB |
+
+Paid plans increase the daily quota. Prices are intentionally not displayed until the owner sets them. All plans have a 50 MB maximum upload.
+
+Upgrade contacts:
+- Telegram: https://t.me/LiaqatAliPro
+- Email: liaqatalicontact001@gmail.com
+- WhatsApp: https://wa.me/923451160017
+- Developer: Liaquat Ali
+
+After confirming payment, activate a plan from the Supabase SQL editor (replace the customer email and plan):
+
+```sql
+insert into public.user_subscriptions (user_id, plan, status, expires_at)
+select id, 'pro', 'active', now() + interval '30 days'
+from auth.users where email = 'CUSTOMER_EMAIL'
+on conflict (user_id) do update
+set plan = excluded.plan, status = excluded.status,
+    expires_at = excluded.expires_at, updated_at = now();
+```
+
+Users can read only their own subscription. Authenticated users cannot edit their plan; only trusted project administrators can activate upgrades.
+
+## API protection notes
+
+- Processing routes require a valid Supabase session cookie (HttpOnly, Secure, SameSite=Lax).
+- Plan and daily quota checks happen in the Python API, not in frontend JavaScript.
+- Job history and private file storage remain protected by Supabase RLS and user-folder policies.
+- API URLs and requests cannot be made impossible to inspect. The protection is server-side authorization, quotas, validation, and keeping privileged secrets off the client—not hiding endpoint URLs.
