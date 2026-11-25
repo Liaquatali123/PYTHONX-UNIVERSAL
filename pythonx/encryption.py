@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from getpass import getpass
 
 MAGIC = b"PYXENC1"
 SALT_SIZE = 16
@@ -15,6 +14,7 @@ KEY_SIZE = 32
 SCRYPT_N = 2 ** 14
 SCRYPT_R = 8
 SCRYPT_P = 1
+MAX_ENCRYPT_SIZE = 256 * 1024 * 1024
 
 
 def _crypto():
@@ -52,6 +52,10 @@ def encrypt_file(source, destination, password: str) -> Path:
         raise FileNotFoundError(src)
     if src.resolve() == dst.resolve():
         raise ValueError("Input and output paths must be different.")
+    if dst.exists():
+        raise FileExistsError(f"Output already exists: {dst}")
+    if src.stat().st_size > MAX_ENCRYPT_SIZE:
+        raise ValueError("File exceeds the 256 MiB encryption limit.")
     if is_pyx_encrypted(src):
         raise ValueError("This file is already PYTHONX-encrypted.")
     raw = src.read_bytes()
@@ -70,6 +74,10 @@ def decrypt_file(source, destination, password: str) -> Path:
         raise FileNotFoundError(src)
     if src.resolve() == dst.resolve():
         raise ValueError("Input and output paths must be different.")
+    if dst.exists():
+        raise FileExistsError(f"Output already exists: {dst}")
+    if src.stat().st_size > MAX_ENCRYPT_SIZE:
+        raise ValueError("File exceeds the 256 MiB decryption limit.")
     blob = src.read_bytes()
     minimum = len(MAGIC) + SALT_SIZE + NONCE_SIZE + 16
     if len(blob) < minimum or not blob.startswith(MAGIC):
