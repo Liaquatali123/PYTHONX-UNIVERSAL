@@ -90,8 +90,15 @@ async def signup(payload: dict):
     email, password = payload.get("email", "").strip(), payload.get("password", "")
     if not email or len(password) < 8:
         raise HTTPException(400, "Email and a password of at least 8 characters are required.")
+    # Send confirmation links back to the deployed Vercel frontend, never localhost.
+    frontend_url = os.getenv("FRONTEND_URL", "https://pythonx-universal-web.vercel.app").rstrip("/")
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(f"{SUPABASE_URL}/auth/v1/signup", headers={"apikey": SUPABASE_ANON_KEY}, json={"email": email, "password": password})
+        r = await client.post(
+            f"{SUPABASE_URL}/auth/v1/signup",
+            params={"redirect_to": frontend_url},
+            headers={"apikey": SUPABASE_ANON_KEY},
+            json={"email": email, "password": password},
+        )
     if r.status_code >= 400:
         raise HTTPException(r.status_code, r.json().get("msg", r.text)[:300])
     data = r.json()
