@@ -74,7 +74,12 @@ def inspect_pyc(data):
     return info
 
 def scan_path(path):
-    root = Path(path)
+    # Never choose a default location: inspect only the explicit user-supplied path.
+    root = Path(path).expanduser()
+    if not root.exists():
+        raise FileNotFoundError(root)
+    if not (root.is_file() or root.is_dir()):
+        raise ValueError("Input path must be a regular file or directory")
     paths = [root] if root.is_file() else sorted(x for x in root.rglob("*") if x.is_file())
     results = []
     for item in paths:
