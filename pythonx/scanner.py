@@ -78,16 +78,9 @@ def scan_path(path):
     root = Path(path).expanduser()
     if not root.exists():
         raise FileNotFoundError(root)
-    if not (root.is_file() or root.is_dir()):
-        raise ValueError("Input path must be a regular file or directory")
-    paths = [root] if root.is_file() else sorted(x for x in root.rglob("*") if x.is_file())
-    results = []
-    for item in paths:
-        try:
-            results.append(inspect_file(item))
-        except Exception as exc:
-            results.append({"path": str(item), "error": str(exc)})
-    return results
+    if not root.is_file():
+        raise ValueError("PYTHONX accepts one regular file only; folder scanning is disabled")
+    return [inspect_file(root)]
 
 def write_json(data, path):
     Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
