@@ -49,8 +49,10 @@ def extract_zip(source, output):
 
 def recover_path(source, output):
     src, out = Path(source), Path(output)
-    if not src.is_file():
+    if not src.exists():
         raise FileNotFoundError(src)
+    if not src.is_file():
+        raise ValueError("PYTHONX recovery accepts one file only; folder recovery is disabled")
     if zipfile.is_zipfile(src):
         return extract_zip(src, out)
     if src.suffix.lower() in (".py", ".pyc", ".pyo"):
