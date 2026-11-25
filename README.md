@@ -1,87 +1,85 @@
 # PYTHONX UNIVERSAL
 
-Terminal-only Python file inspection and best-effort recovery. Python 3.9+; no mandatory runtime dependencies.
+Terminal-only, cross-platform Python file inspection, password protection and best-effort recovery. Python 3.9+. One explicitly selected file at a time — no folder or whole-storage scanning.
 
-**ONE FILE ONLY:** You select one exact file. PYTHONX does not scan folders, the whole phone, or computer storage.
+## Android Termux — fresh install
 
-## Quick start — Android Termux
-
-Copy and run this complete block for a fresh installation:
+Copy this complete block:
 
 ```bash
-pkg update -y && pkg install -y python git
+pkg update -y && pkg install -y python git rust clang openssl libffi
 termux-setup-storage
 git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
 cd PYTHONX-UNIVERSAL
-python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e ".[crypto,decompile]"
 python main.py
 ```
 
-Already installed? Copy this block to update and start:
+## Android Termux — update existing install
 
 ```bash
 cd ~/PYTHONX-UNIVERSAL
 git pull
-python -m pip install -e .
+python -m pip install -e ".[crypto,decompile]"
 python main.py
 ```
 
-## Windows PowerShell
-
-Fresh install:
+## Windows PowerShell — fresh install
 
 ```powershell
 git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
 cd PYTHONX-UNIVERSAL
 py -m pip install --upgrade pip
-py -m pip install -e .
+py -m pip install -e ".[crypto,decompile]"
 py main.py
 ```
 
-## Linux / macOS
-
-Fresh install:
+## Linux / macOS — fresh install
 
 ```bash
 git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
 cd PYTHONX-UNIVERSAL
 python3 -m pip install --upgrade pip
-python3 -m pip install -e .
+python3 -m pip install -e ".[crypto,decompile]"
 python3 main.py
 ```
 
-## How to use
+## Protect your own code or file
 
-1. Run the start command above.
-2. Paste the full path of one file when prompted. On Android, for example: `/sdcard/Download/sample.pyc`.
-3. PYTHONX identifies the file and displays its information.
-4. Choose an action from the numbered menu.
-5. Enter an output path or press Enter to accept the suggested path.
+1. Start PYTHONX and enter the exact file path.
+2. Select **Protect this file**.
+3. Enter a password of at least 8 characters twice.
+4. PYTHONX creates a separate `.pyx` encrypted file. The original is not overwritten.
 
-You do not need to remember separate inspect/recover/decode commands. The interactive menu guides you.
+## Decrypt your PYTHONX file
 
-## Available actions
+1. Select the `.pyx` file.
+2. PYTHONX identifies its own encrypted format and displays the decrypt action.
+3. Enter the original password.
+4. The decrypted content is saved to a separate output file.
 
-- File overview and SHA-256 hash.
-- Python source syntax check.
-- Python bytecode metadata and compatible disassembly.
-- ZIP/PYZ safe extraction with path traversal, symlink, entry-count and size safeguards.
-- JSON report export.
-- Explicit Base64 or zlib payload decoding.
-- Optional bytecode decompilation with `decompyle3` (best-effort).
+Encryption uses **AES-256-GCM** authenticated encryption with a random salt and nonce, and a password-derived key using scrypt. A wrong password or modified file is rejected. Passwords are not stored. If you lose the password, PYTHONX cannot recover it.
 
-## Run tests
+This protects files at rest; it does not make Python source impossible to copy after it has been decrypted or executed. It is not source-code obfuscation, licensing enforcement, or a compiled executable packer.
 
-Copy this block from the repository folder:
+## Detection and recovery
+
+- Detects the PYTHONX encrypted format and several common encryption/container signatures (OpenSSL, PGP, encrypted PDF marker, 7z/RAR container signatures).
+- Detects password-protected ZIP entries.
+- Only PYTHONX's own AES-GCM format is decrypted directly by PYTHONX. For other formats, use the original software and a legitimate password/key. Detection is indicative, not proof that a file is encrypted.
+- Python source syntax checks, bytecode metadata/disassembly, JSON reports, safe ZIP/PYZ extraction and Base64/zlib decoding.
+- Optional best-effort Python bytecode decompilation.
+
+## Tests
 
 ```bash
-python -m pip install -e .
+python -m pip install -e ".[crypto,decompile]"
 python -m unittest discover -s tests -v
 ```
 
 ## Safety and limitations
 
-PYTHONX is not a universal decryptor or protection remover. It cannot break encryption, DRM, licensing, anti-tamper or access controls. Bytecode is Python-version-specific; decompilation is best-effort. PyInstaller, Nuitka, Cython, PyArmor and native binaries may require matching vendor tools, runtime, or original source. Detection does not imply extraction. Never execute recovered code from untrusted sources. Marshal parsing is not a security boundary.
+PYTHONX does not crack passwords or break AES, DRM, licensing, anti-tamper or access controls. It cannot guarantee recovery of damaged files. Python bytecode is version-specific; decompilation may fail. Never execute recovered code from an untrusted source. Marshal parsing is not a security boundary. Keep a backup before recovery operations.
 
 MIT License; see LICENSE.
