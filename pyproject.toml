@@ -4,13 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pythonx-universal"
-version = "0.1.0"
-description = "Cross-platform Python artifact inspection and safe recovery"
+version = "0.2.0"
+description = "Cross-platform Python file inspection, encryption and safe recovery"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {file = "LICENSE"}
 authors = [{name = "Liaquat Ali"}]
 dependencies = []
+
+[project.optional-dependencies]
+crypto = ["cryptography>=42.0.0"]
+decompile = ["decompyle3>=3.9.2"]
 
 [project.scripts]
 pythonx = "pythonx.cli:main"
