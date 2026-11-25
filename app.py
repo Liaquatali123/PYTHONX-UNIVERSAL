@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from pythonx.encryption import MAGIC, detect_protection, encrypt_file, decrypt_file
+from pythonx.obfuscation import obfuscate_python
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
@@ -396,21 +397,31 @@ async def process_file(request: Request, file: UploadFile = File(...), operation
         except SyntaxError as exc:
             raise HTTPException(400, f"Python syntax error at line {exc.lineno}: {exc.msg}")
         try:
-            import python_minifier
-            protected_source = python_minifier.minify(source, rename_locals=True, rename_globals=False,
-                remove_literal_statements=False, remove_asserts=False, remove_debug=False)
+            protected_source, obfuscation_metrics = obfuscate_python(source, original_name)
             protected_bytes = protected_source.encode("utf-8")
             compile(protected_source, "protected.py", "exec")
         except HTTPException:
             raise
-        except Exception as exc:
+        except (SyntaxError, ValueError) as exc:
             raise HTTPException(422, f"Python obfuscation failed safely: {str(exc)[:220]}")
+        except Exception as exc:
+            raise HTTPException(422, f"Python obfuscation failed safely: {type(exc).__name__}: {str(exc)[:180]}")
         output_name = "protected.py"
         output_path = f"{prefix}/{output_name}"
         await storage_upload(token, output_path, protected_bytes, "text/x-python")
-        report.update({"encrypted": False, "obfuscated": True, "format": "PYTHONX Python source obfuscation",
-            "decryptable_by_pythonx": False, "checks": report.get("checks", []) + ["Python syntax validated; local variable names obfuscated; output syntax validated; uploaded code was not executed."],
-            "warnings": report.get("warnings", []) + ["Obfuscation is not encryption. Python code can still be reverse engineered; do not embed secrets in source."],
+        report.update({"encrypted": False, "obfuscated": True, "format": "PYTHONX Advanced Python source obfuscation",
+            "decryptable_by_pythonx": False,
+            "checks": report.get("checks", []) + [
+                "AST-based Python parsing passed; comments and redundant formatting minimized.",
+                "Local identifiers shortened; global identifiers renamed when dynamic name lookup is not detected.",
+                "Output parsed and compiled for syntax validation only; uploaded code was never executed."
+            ],
+            "obfuscation": obfuscation_metrics,
+            "warnings": report.get("warnings", []) + [
+                "Obfuscation is not encryption. Determined analysts can reverse engineer Python source.",
+                "Global renaming may affect external imports, reflection, plugin hooks, or code that depends on exact symbol names. Dynamic globals/locals/eval/exec usage disables global renaming.",
+                "Run the downloaded file in your own trusted test environment before production use. PYTHONX never executes uploaded files."
+            ],
             "result": {"filename": output_name, "size_bytes": len(protected_bytes)}})
     if operation in {"encrypt", "decrypt"}:
         import tempfile
