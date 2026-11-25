@@ -14,7 +14,6 @@ dependencies = []
 
 [project.scripts]
 pythonx = "pythonx.cli:main"
-pythonx-dashboard = "pythonx.dashboard:main"
 
 [tool.setuptools]
 packages = ["pythonx"]
