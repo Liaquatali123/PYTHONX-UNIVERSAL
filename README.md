@@ -2,63 +2,86 @@
 
 Terminal-only Python file inspection and best-effort recovery. Python 3.9+; no mandatory runtime dependencies.
 
-**One file at a time.** PYTHONX never scans folders, the whole phone, or computer storage. You choose one exact file path; it works only on that file.
+**ONE FILE ONLY:** You select one exact file. PYTHONX does not scan folders, the whole phone, or computer storage.
 
-## Start with one command
+## Quick start — Android Termux
 
-After installation, run:
+Copy and run this complete block for a fresh installation:
 
-    python main.py
+```bash
+pkg update -y && pkg install -y python git
+termux-setup-storage
+git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
+cd PYTHONX-UNIVERSAL
+python -m pip install --upgrade pip
+python -m pip install -e .
+python main.py
+```
 
-Or, when installed:
+Already installed? Copy this block to update and start:
 
-    python -m pythonx.cli
+```bash
+cd ~/PYTHONX-UNIVERSAL
+git pull
+python -m pip install -e .
+python main.py
+```
 
-The interactive tool asks for one file path, identifies its type, displays a summary, and shows relevant actions. Paste a path or drag a file into the terminal. Select an action from the menu; no need to remember separate commands.
+## Windows PowerShell
 
-Direct one-file inspection is also supported:
+Fresh install:
 
-    python main.py "/sdcard/Download/sample.pyc"
+```powershell
+git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
+cd PYTHONX-UNIVERSAL
+py -m pip install --upgrade pip
+py -m pip install -e .
+py main.py
+```
 
-## Install
+## Linux / macOS
 
-Linux/macOS:
-    git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
-    cd PYTHONX-UNIVERSAL
-    python3 -m venv .venv
-    source .venv/bin/activate
-    python -m pip install -e .
+Fresh install:
 
-Windows PowerShell:
-    git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
-    cd PYTHONX-UNIVERSAL
-    py -m venv .venv
-    .venv\Scripts\Activate.ps1
-    python -m pip install -e .
+```bash
+git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
+cd PYTHONX-UNIVERSAL
+python3 -m pip install --upgrade pip
+python3 -m pip install -e .
+python3 main.py
+```
 
-Android Termux:
-    pkg update && pkg install python git
-    git clone https://github.com/Liaquatali123/PYTHONX-UNIVERSAL.git
-    cd PYTHONX-UNIVERSAL
-    python -m pip install -e .
-    termux-setup-storage
-    python main.py
+## How to use
 
-## Actions
+1. Run the start command above.
+2. Paste the full path of one file when prompted. On Android, for example: `/sdcard/Download/sample.pyc`.
+3. PYTHONX identifies the file and displays its information.
+4. Choose an action from the numbered menu.
+5. Enter an output path or press Enter to accept the suggested path.
 
-- Identify and inspect one selected .py, .pyc/.pyo, ZIP/PYZ, or other file.
-- Check Python source syntax and compatible bytecode metadata.
-- Safely extract a selected ZIP/PYZ archive with path traversal, symlink, entry-count and size safeguards.
-- Save a JSON report.
-- Explicitly attempt Base64 or zlib payload decoding.
-- Optionally decompile bytecode when decompyle3 supports its Python version.
+You do not need to remember separate inspect/recover/decode commands. The interactive menu guides you.
+
+## Available actions
+
+- File overview and SHA-256 hash.
+- Python source syntax check.
+- Python bytecode metadata and compatible disassembly.
+- ZIP/PYZ safe extraction with path traversal, symlink, entry-count and size safeguards.
+- JSON report export.
+- Explicit Base64 or zlib payload decoding.
+- Optional bytecode decompilation with `decompyle3` (best-effort).
+
+## Run tests
+
+Copy this block from the repository folder:
+
+```bash
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
 
 ## Safety and limitations
 
-This is not a universal decryptor or protection remover. It cannot break encryption, DRM, licensing, anti-tamper or access controls. Bytecode is Python-version-specific; decompilation is best-effort. PyInstaller, Nuitka, Cython, PyArmor and native binaries may require matching vendor tools, runtime, or original source. Detection does not imply extraction. Never execute recovered code from untrusted sources. Marshal parsing is not a security boundary.
-
-## Tests
-
-    python -m unittest discover -s tests -v
+PYTHONX is not a universal decryptor or protection remover. It cannot break encryption, DRM, licensing, anti-tamper or access controls. Bytecode is Python-version-specific; decompilation is best-effort. PyInstaller, Nuitka, Cython, PyArmor and native binaries may require matching vendor tools, runtime, or original source. Detection does not imply extraction. Never execute recovered code from untrusted sources. Marshal parsing is not a security boundary.
 
 MIT License; see LICENSE.
