@@ -49,16 +49,8 @@ def extract_zip(source, output):
 
 def recover_path(source, output):
     src, out = Path(source), Path(output)
-    if src.is_dir():
-        out.mkdir(parents=True, exist_ok=True)
-        copied = []
-        for item in src.rglob("*"):
-            if item.is_file():
-                target = safe_target(out, item.relative_to(src).as_posix())
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, target)
-                copied.append(str(target))
-        return copied
+    if not src.is_file():
+        raise FileNotFoundError(src)
     if zipfile.is_zipfile(src):
         return extract_zip(src, out)
     if src.suffix.lower() in (".py", ".pyc", ".pyo"):
