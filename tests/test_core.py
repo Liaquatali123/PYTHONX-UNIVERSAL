@@ -15,7 +15,7 @@ class CoreTests(unittest.TestCase):
         self.tmp.cleanup()
     def test_source_inspection(self):
         p = self.root / "a.py"
-        p.write_text("print('ok')\\n")
+        p.write_text("print('ok')\n")
         self.assertTrue(inspect_file(p)["syntax_valid"])
     def test_single_file_only(self):
         p = self.root / "a.py"
@@ -51,7 +51,7 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(Path(result[0]).read_text(), "x=42")
     def test_encrypt_decrypt_roundtrip(self):
         original = self.root / "secret.py"
-        original.write_text("print('protected')\\n")
+        original.write_text("print('protected')\n")
         encrypted = self.root / "secret.pyx"
         restored = self.root / "restored.py"
         encrypt_file(original, encrypted, "correct horse battery")
